@@ -152,18 +152,29 @@
         }
 
         // --- 3. Wenn Bild fertig ---
-        function handleGenerationComplete(ipfsUri) {
-            showLoading(false);
-            
-            const imageUrl = ipfsUri.replace('ipfs://', 'https://cloudflare-ipfs.com/ipfs/');
-            ui.preview.src = imageUrl;
-            ui.preview.style.display = 'block';
+ function handleGenerationComplete(ipfsUri) {
+    showLoading(false);
 
-            updateStatus('Bild fertiggestellt! Bereit zum Minten.');
-            
-            ui.mintButton.disabled = false;
-            ui.mintButton.dataset.ipfsUri = ipfsUri;
-        }
+    // Standard: erstmal davon ausgehen, dass ipfsUri schon eine gültige URL ist
+    let imageUrl = ipfsUri;
+
+    // Falls es eine echte IPFS-URI ist, auf ein HTTP-Gateway mappen
+    if (ipfsUri && ipfsUri.startsWith("ipfs://")) {
+        imageUrl = ipfsUri.replace("ipfs://", "https://cloudflare-ipfs.com/ipfs/");
+    }
+
+    // Bild im Frontend anzeigen
+    ui.preview.src = imageUrl;
+    ui.preview.style.display = 'block';
+
+    // Status anzeigen
+    updateStatus('Bild fertiggestellt! Bereit zum Minten.');
+
+    // Mint-Button aktivieren und IPFS-URI für später speichern
+    ui.mintButton.disabled = false;
+    ui.mintButton.dataset.ipfsUri = ipfsUri;
+}
+
 
         // --- 4. Mint ---
         async function mintNft() {
@@ -205,4 +216,5 @@
     </script>
 </body>
 </html>
+
 
