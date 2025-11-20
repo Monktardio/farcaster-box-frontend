@@ -161,11 +161,11 @@ function handleGenerationComplete(ipfsUri) {
     // Fallback: Platzhalterbild, falls ipfsUri leer oder kaputt ist
     let imageUrl = "https://picsum.photos/1024/1024";
 
-    // Wenn ipfsUri gesetzt ist, versuchen wir, es zu verwenden
     if (ipfsUri) {
-        // Echte IPFS-URI -> auf HTTP-Gateway mappen
+        // Echte IPFS-URI -> auf PINATA-Gateway mappen
         if (ipfsUri.startsWith("ipfs://")) {
-            imageUrl = ipfsUri.replace("ipfs://", "https://cloudflare-ipfs.com/ipfs/");
+            // wichtig: Pinata-Gateway statt Cloudflare
+            imageUrl = ipfsUri.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/");
         }
         // Normale HTTP/HTTPS-URL -> direkt nutzen
         else if (ipfsUri.startsWith("http://") || ipfsUri.startsWith("https://")) {
@@ -175,11 +175,9 @@ function handleGenerationComplete(ipfsUri) {
 
     console.log("🔎 Resolved imageUrl für <img>:", imageUrl);
 
-    // Bild im Frontend anzeigen
     ui.preview.src = imageUrl;
     ui.preview.style.display = 'block';
 
-    // Optional: URL unter dem Bild anzeigen, damit du draufklicken kannst
     const urlContainer = document.getElementById('image-url');
     if (urlContainer) {
         urlContainer.innerHTML = `
@@ -187,16 +185,11 @@ function handleGenerationComplete(ipfsUri) {
         `;
     }
 
-    // Status-Text
     updateStatus('Bild fertiggestellt! Bereit zum Minten.');
 
-    // Mint-Button aktivieren und ipfsUri für später speichern (falls wir es später brauchen)
     ui.mintButton.disabled = false;
     ui.mintButton.dataset.ipfsUri = ipfsUri || "";
 }
-
-
-
 
         // --- 4. Mint ---
         async function mintNft() {
@@ -238,6 +231,7 @@ function handleGenerationComplete(ipfsUri) {
     </script>
 </body>
 </html>
+
 
 
 
