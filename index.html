@@ -152,10 +152,12 @@
         }
 
         // --- 3. Wenn Bild fertig ---
- function handleGenerationComplete(ipfsUri) {
+function handleGenerationComplete(ipfsUri) {
     showLoading(false);
 
-    // Standard: erstmal davon ausgehen, dass ipfsUri schon eine gültige URL ist
+    console.log("🔎 handleGenerationComplete() – ipfsUri vom Backend:", ipfsUri);
+
+    // Standard: erst mal annehmen, dass ipfsUri schon eine direkte URL ist
     let imageUrl = ipfsUri;
 
     // Falls es eine echte IPFS-URI ist, auf ein HTTP-Gateway mappen
@@ -163,17 +165,28 @@
         imageUrl = ipfsUri.replace("ipfs://", "https://cloudflare-ipfs.com/ipfs/");
     }
 
+    console.log("🔎 Resolved imageUrl für <img>:", imageUrl);
+
     // Bild im Frontend anzeigen
     ui.preview.src = imageUrl;
     ui.preview.style.display = 'block';
 
-    // Status anzeigen
+    // Optional: die URL auch als Link unter dem Bild anzeigen (zum Testen in neuem Tab)
+    const urlContainer = document.getElementById('image-url');
+    if (urlContainer) {
+        urlContainer.innerHTML = `
+            <small>Bild-URL: <a href="${imageUrl}" target="_blank" rel="noopener noreferrer">${imageUrl}</a></small>
+        `;
+    }
+
+    // Status-Text
     updateStatus('Bild fertiggestellt! Bereit zum Minten.');
 
     // Mint-Button aktivieren und IPFS-URI für später speichern
     ui.mintButton.disabled = false;
     ui.mintButton.dataset.ipfsUri = ipfsUri;
 }
+
 
 
         // --- 4. Mint ---
@@ -216,5 +229,6 @@
     </script>
 </body>
 </html>
+
 
 
