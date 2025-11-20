@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Box Mint Prozess</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            text-align: center;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        #status-message {
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        #image-preview {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ccc;
+            margin: 20px 0;
+            display: none;
+        }
+        button {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            margin: 5px;
+        }
+        #start-button {
+            background-color: #007bff;
+            color: white;
+        }
+        #mint-button {
+            background-color: #28a745;
+            color: white;
+        }
+        .spinner {
+            border: 4px solid rgba(0,0,0,.1);
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            display: none;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🤖 Dein AI Box Charakter</h1>
+    
+    <div id="status-message">Klicke unten, um deinen einzigartigen Charakter zu generieren.</div>
+    
+    <img id="image-preview" alt="Vorschau des KI-generierten Charakters">
+
+    <div id="loading-spinner" class="spinner"></div>
+
+    <button id="start-button">1. Generierung starten</button>
+    <button id="mint-button" disabled>2. Jetzt Minten (0 ETH)</button>
+
+    <div id="transaction-link" style="margin-top: 20px; display: none;"></div>
+
+    <script>
+        // --- KONFIGURATION ---
+        const BACKEND_URL = 'https://farcaster-box-backend-y1jq.vercel.app';
+        // TODO: später kommt das echte FID aus Farcaster/Login
+        const USER_FID = 12345;
+        const RECIPIENT_ADDRESS = '0x84c01f78cC440b6f0f785a7eE6C86671ab1F31b8'; // zum Test: deine Wallet
+
+        let pollingInterval = null;
+        const ui = {
+            status: document.getElementById('status-message'),
+            spinner: document.getElementById('loading-spinner'),
+            preview: document.getElementById('image-preview'),
+            startButton: document.getElementById('start-button'),
+            mintButton: document.getElementById('mint-button'),
+            txLink: document.getElementById('transaction-link')
+        };
+        
+        function updateStatus(message) {
+            ui.status.textContent = message;
+        }
+
+        function showLoading(isLoading) {
+            ui.spinner.style.display = isLoading ? 'block' : 'none';
+            ui.startButton.disabled = isLoading;
+        }
+        
+        // --- 1. Generierung starten ---
+        async function startGeneration() {
+            updateStatus('Sende Anfrage zur KI-Generierung...');
+            showLoading(true);
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/start-generation`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ fid: USER_FID }),
+                });
+                
+                const data = await response.json();
+
+                if (data.status === 'processing') {
+                    updateStatus('Generierung gestartet. Bitte warten (ca. 30–60s)...');
+                    startPolling();
+                } else if (data.status === 'ready') {
+                    handleGenerationComplete(data.ipfsUri);
+                } else if (data.error) {
+                    updateStatus(`FEHLER: ${data.error}`);
+                    showLoading(false);
+                }
+
+            } catch (error) {
+                updateStatus(`FEHLER: Verbindung zum Backend fehlgeschlagen. ${error.message}`);
+                showLoading(false);
+            }
+        }
+
+        // --- 2. Polling ---
+        function startPolling() {
+            const pollStatus = async () => {
+                try {
+                    const response = await fetch(`${BACKEND_URL}/api/status?fid=${USER_FID}`);
+                    const data = await response.json();
+
+                    if (data.status === 'ready') {
+                        clearInterval(pollingInterval);
+                        handleGenerationComplete(data.ipfsUri);
+                    } else if (data.status === 'error') {
+                        clearInterval(pollingInterval);
+                        updateStatus(`FEHLER bei der KI: ${data.message || 'Unbekannter Fehler'}`);
+                        showLoading(false);
+                    } else {
+                        updateStatus('KI arbeitet noch... (Weiter warten)');
+                    }
+                } catch (error) {
+                    console.error("Polling Fehler:", error);
+                }
+            };
+
+            pollingInterval = setInterval(pollStatus, 5000);
+        }
+
+        // --- 3. Wenn Bild fertig ---
+        function handleGenerationComplete(ipfsUri) {
+            showLoading(false);
+            
+            const imageUrl = ipfsUri.replace('ipfs://', 'https://cloudflare-ipfs.com/ipfs/');
+            ui.preview.src = imageUrl;
+            ui.preview.style.display = 'block';
+
+            updateStatus('Bild fertiggestellt! Bereit zum Minten.');
+            
+            ui.mintButton.disabled = false;
+            ui.mintButton.dataset.ipfsUri = ipfsUri;
+        }
+
+        // --- 4. Mint ---
+        async function mintNft() {
+            ui.mintButton.disabled = true;
+            updateStatus('Sende Mint-Transaktion an Base Sepolia...');
+            showLoading(true);
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/mint-nft`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ fid: USER_FID, recipientAddress: RECIPIENT_ADDRESS }),
+                });
+                
+                const data = await response.json();
+                showLoading(false);
+
+                if (data.success) {
+                    updateStatus('Mint erfolgreich! Transaktion gesendet.');
+                    ui.txLink.innerHTML =
+                        `<a href="https://sepolia.basescan.org/tx/${data.txHash}" target="_blank">Transaktion auf Basescan ansehen</a>`;
+                    ui.txLink.style.display = 'block';
+                } else {
+                    updateStatus(`Mint FEHLGESCHLAGEN: ${data.details || data.error}`);
+                    ui.mintButton.disabled = false;
+                }
+
+            } catch (error) {
+                updateStatus(`FEHLER im Mint-Prozess: ${error.message}`);
+                showLoading(false);
+                ui.mintButton.disabled = false;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            ui.startButton.addEventListener('click', startGeneration);
+            ui.mintButton.addEventListener('click', mintNft);
+        });
+    </script>
+</body>
+</html>
