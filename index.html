@@ -61,7 +61,8 @@
     
     <div id="status-message">Klicke unten, um deinen einzigartigen Charakter zu generieren.</div>
     
-    <img id="image-preview" alt="Vorschau des KI-generierten Charakters">
+    <img id="image-preview" alt="Vorschau des KI-generierten Charakters">    
+    <div id="image-url" style="margin-top: 4px;"></div>
 
     <div id="loading-spinner" class="spinner"></div>
 
@@ -157,12 +158,19 @@ function handleGenerationComplete(ipfsUri) {
 
     console.log("🔎 handleGenerationComplete() – ipfsUri vom Backend:", ipfsUri);
 
-    // Standard: erst mal annehmen, dass ipfsUri schon eine direkte URL ist
-    let imageUrl = ipfsUri;
+    // Fallback: Platzhalterbild, falls ipfsUri leer oder kaputt ist
+    let imageUrl = "https://picsum.photos/1024/1024";
 
-    // Falls es eine echte IPFS-URI ist, auf ein HTTP-Gateway mappen
-    if (ipfsUri && ipfsUri.startsWith("ipfs://")) {
-        imageUrl = ipfsUri.replace("ipfs://", "https://cloudflare-ipfs.com/ipfs/");
+    // Wenn ipfsUri gesetzt ist, versuchen wir, es zu verwenden
+    if (ipfsUri) {
+        // Echte IPFS-URI -> auf HTTP-Gateway mappen
+        if (ipfsUri.startsWith("ipfs://")) {
+            imageUrl = ipfsUri.replace("ipfs://", "https://cloudflare-ipfs.com/ipfs/");
+        }
+        // Normale HTTP/HTTPS-URL -> direkt nutzen
+        else if (ipfsUri.startsWith("http://") || ipfsUri.startsWith("https://")) {
+            imageUrl = ipfsUri;
+        }
     }
 
     console.log("🔎 Resolved imageUrl für <img>:", imageUrl);
@@ -171,7 +179,7 @@ function handleGenerationComplete(ipfsUri) {
     ui.preview.src = imageUrl;
     ui.preview.style.display = 'block';
 
-    // Optional: die URL auch als Link unter dem Bild anzeigen (zum Testen in neuem Tab)
+    // Optional: URL unter dem Bild anzeigen, damit du draufklicken kannst
     const urlContainer = document.getElementById('image-url');
     if (urlContainer) {
         urlContainer.innerHTML = `
@@ -182,10 +190,11 @@ function handleGenerationComplete(ipfsUri) {
     // Status-Text
     updateStatus('Bild fertiggestellt! Bereit zum Minten.');
 
-    // Mint-Button aktivieren und IPFS-URI für später speichern
+    // Mint-Button aktivieren und ipfsUri für später speichern (falls wir es später brauchen)
     ui.mintButton.disabled = false;
-    ui.mintButton.dataset.ipfsUri = ipfsUri;
+    ui.mintButton.dataset.ipfsUri = ipfsUri || "";
 }
+
 
 
 
@@ -229,6 +238,7 @@ function handleGenerationComplete(ipfsUri) {
     </script>
 </body>
 </html>
+
 
 
 
